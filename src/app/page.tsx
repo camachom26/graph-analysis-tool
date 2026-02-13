@@ -14,8 +14,8 @@ import ReactFlow, {
 } from "reactflow";
 import "reactflow/dist/style.css";
 
-import { toWasmInput } from "@/lib/serialize";
-import { runKruskalSteps, type KruskalStepResponse } from "@/lib/kruskalWasm";
+import { toWasmInput } from "./lib/serialize";
+import { runKruskalSteps, type KruskalStepResponse } from "./lib/kruskalWasm";
 
 function uid(prefix = "id") {
   return `${prefix}_${Math.random().toString(16).slice(2)}_${Date.now()}`;
@@ -53,35 +53,51 @@ export default function Page() {
   const [isComputing, setIsComputing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const displayStepsLen = useMemo(() => {
+    if (!kruskal) return 0;
+    return kruskal.steps.length + 1; // extra post step
+  }, [kruskal]);
+
+  const isPostFinalStep = useMemo(() => {
+    if (!kruskal) return false;
+    return stepIndex === kruskal.steps.length; // the extra post step index
+  }, [kruskal, stepIndex]);
+
   const current = useMemo(() => {
     if (!kruskal) return null;
     if (stepIndex < 0) return null;
+    if (stepIndex >= kruskal.steps.length) return kruskal.steps[kruskal.steps.length - 1] ?? null;
+
     return kruskal.steps[stepIndex] ?? null;
   }, [kruskal, stepIndex]);
 
   const mstSet = useMemo(() => new Set(current?.mstEdgeIds ?? []), [current]);
   const rejectedSet = useMemo(() => new Set(current?.rejectedEdgeIds ?? []), [current]);
   const consideredId = current?.consideredEdgeId ?? null;
+  const finalGrayEdgeId = isPostFinalStep ? consideredId : null;
 
   const styledEdges: RFEdge[] = useMemo(() => {
     return edges.map((e) => {
       const isMst = mstSet.has(e.id);
       const isRejected = rejectedSet.has(e.id);
       const isConsidered = consideredId === e.id;
+      const isFinalGray = finalGrayEdgeId === e.id;
 
       const style: React.CSSProperties = {
         strokeWidth: isConsidered ? 5 : isMst ? 4 : 1.5,
         opacity: isMst || isConsidered ? 1 : isRejected ? 0.15 : 0.45,
-        strokeDasharray: isRejected ? "6 4" : undefined,
+        strokeDasharray: isFinalGray ? undefined : isRejected ? "6 4" : undefined,
+        stroke: isFinalGray ? "#9CA3AF" : undefined,
       };
 
       return {
         ...e,
-        animated: isConsidered && current?.action === "accept",
+        // don't animate on the post-final gray step
+        animated: isConsidered && current?.action === "accept" && !isFinalGray,
         style,
       };
     });
-  }, [edges, mstSet, rejectedSet, consideredId, current]);
+  }, [edges, mstSet, rejectedSet, consideredId, current, finalGrayEdgeId]);
 
   const invalidate = useCallback(() => {
     setKruskal(null);
@@ -203,10 +219,9 @@ export default function Page() {
     }
   }, [nodes, edges]);
 
-  const canStepForward = !!kruskal && stepIndex < kruskal.steps.length - 1;
+  const canStepForward = !!kruskal && stepIndex < displayStepsLen - 1;
   const canStepBack = stepIndex > -1;
   const totalWeight = current?.totalWeight ?? 0;
-  const totalSteps = kruskal?.steps.length ?? 0;
 
   return (
     <div className="min-h-screen grid grid-cols-1 lg:grid-cols-[1fr_390px]">
@@ -251,15 +266,13 @@ export default function Page() {
         </div>
 
         {error ? (
-          <div className="p-3 rounded-lg border text-sm text-red-600">
-            {error}
-          </div>
+          <div className="p-3 rounded-lg border text-sm text-red-600">{error}</div>
         ) : null}
 
         <div className="p-3 rounded-lg border space-y-2">
           <div className="text-sm">
             <div>
-              <span className="font-medium">Step:</span> {stepIndex + 1} / {totalSteps}
+              <span className="font-medium">Step:</span> {stepIndex + 1} / {displayStepsLen}
             </div>
             <div>
               <span className="font-medium">MST Weight (so far):</span> {totalWeight}
@@ -271,7 +284,13 @@ export default function Page() {
               <div className="font-medium">Considering edge:</div>
               <div>
                 <span className="font-mono">{current.consideredEdgeId}</span>{" "}
-                → {current.action.toUpperCase()} {current.reason === "cycle" ? "(cycle)" : ""}
+                {isPostFinalStep ? (
+                  <span className="text-gray-600">→ POST (gray out last considered edge)</span>
+                ) : (
+                  <span>
+                    → {current.action.toUpperCase()} {current.reason === "cycle" ? "(cycle)" : ""}
+                  </span>
+                )}
               </div>
             </div>
           ) : (
@@ -292,14 +311,14 @@ export default function Page() {
           <button
             className="px-3 py-2 rounded-md border disabled:opacity-50"
             disabled={!canStepForward}
-            onClick={() => setStepIndex((i) => Math.min((kruskal?.steps.length ?? 1) - 1, i + 1))}
+            onClick={() => setStepIndex((i) => Math.min(displayStepsLen - 1, i + 1))}
           >
             Step
           </button>
           <button
             className="px-3 py-2 rounded-md border disabled:opacity-50"
             disabled={!kruskal}
-            onClick={() => setStepIndex((kruskal?.steps.length ?? 1) - 1)}
+            onClick={() => setStepIndex(displayStepsLen - 1)}
           >
             Run
           </button>

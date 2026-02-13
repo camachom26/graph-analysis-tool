@@ -1,6 +1,6 @@
 # Graph Analysis Tool (Kruskal MST Demo)
 
-A hosteddemo that lets users edit a graph in the browser and step through Kruskal’s MST algorithm with an MST overlay.
+A hosted demo that lets users edit a graph in the browser and step through Kruskal’s MST algorithm with an MST overlay.
 
 ## Features
 - Add nodes, connect edges, edit weights
