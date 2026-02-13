@@ -45,7 +45,6 @@ function initialGraph() {
   return { nodes, edges };
 }
 
-/** -------------------- Random graph generation -------------------- **/
 function clamp(n: number, lo: number, hi: number) {
   return Math.max(lo, Math.min(hi, n));
 }

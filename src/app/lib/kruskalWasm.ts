@@ -4,7 +4,7 @@ let wasmPromise: Promise<any> | null = null;
 
 async function loadWasmModule() {
   // Load the generated ES module from /public/wasm
-  // We fetch the JS file and import it via a blob URL to avoid bundler issues.
+  // Fetch the JS file and import it via a blob URL to avoid bundler issues.
   const jsUrl = "/wasm/kruskal_wasm.js";
   const resp = await fetch(jsUrl);
   if (!resp.ok) throw new Error(`Failed to fetch WASM loader: ${resp.status}`);
